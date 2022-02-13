@@ -10,6 +10,7 @@
  */
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,11 +19,31 @@
 #include <bzlib.h>
 #endif
 
-int
-main(int argc, char *argv[])
-{
+char *create_include_guard(char *file_name) {
+    char current;
+    char file_name_upper[strlen(file_name)];
+    char *prefix = "BIN2C";
+    char *suffix = "H";
+    unsigned long size = strlen(prefix) + strlen(file_name) + strlen(suffix);
+    char *result = malloc(size * 2);
+    for (int i=0; i < (int)strlen(file_name); i++) {
+        current = file_name[i];
+        if (current == '.' || current == '_') {
+            current = '_';
+        } else {
+            current = (char)toupper(current);
+        }
+        file_name_upper[i] = current;
+    }
+    snprintf(result, size * 2, "%s_%s_%s", prefix, file_name_upper,
+             suffix);
+    return result;
+}
+
+int main(int argc, char *argv[]) {
     char *buf;
     char *ident;
+    char *include_guard;
     unsigned int i, file_size, need_comma;
 
     FILE *f_input, *f_output;
@@ -89,6 +110,11 @@ main(int argc, char *argv[])
 
     need_comma = 0;
 
+    include_guard = create_include_guard(argv[3]);
+    fprintf(f_output, "#ifndef %s\n", include_guard);
+    fprintf(f_output, "#define %s\n", include_guard);
+    fprintf(f_output, "\n");
+
     fprintf(f_output, "const unsigned char %s[%i] = {", ident, file_size);
     for (i = 0; i < file_size; ++i) {
         if (need_comma)
@@ -107,6 +133,9 @@ main(int argc, char *argv[])
     fprintf(f_output, "const int %s_length_uncompressed = %i;\n", ident,
             uncompressed_size);
 #endif
+
+    fprintf(f_output, "\n");
+    fprintf(f_output, "#endif //%s\n", include_guard);
 
     fclose(f_output);
 
